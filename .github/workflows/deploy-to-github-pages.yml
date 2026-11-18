@@ -22,26 +22,33 @@ jobs:
         echo '{"sdk":{"version":"10.0.100","rollForward":"latestFeature"}}' > global.json
         dotnet --version
 
-    # the ahead-of-time build needs it
+    # the ahead-of-time build needs wasm-tools; with it installed the .NET 8 build asks for wasm-tools-net8
     - name: Install .NET WASM build tools
-      run: dotnet workload install wasm-tools
+      run: dotnet workload install wasm-tools wasm-tools-net8
 
-    # Three builds of the same code: the default, the interpreter alone (the control), ahead-of-time compiled
+    # Builds of the same code: the default, the interpreter alone (the control), ahead-of-time compiled, and the default for .NET 9 and 8
     - name: Publish, default
       run: dotnet publish NarrowTest.csproj --nologo -c Release -o publish/default -p:IntermediateOutputPath=obj/default/ -p:OutputPath=bin/default/
     - name: Publish, interpreter only
       run: dotnet publish NarrowTest.csproj --nologo -c Release -o publish/interpreter-only -p:IntermediateOutputPath=obj/interpreter-only/ -p:OutputPath=bin/interpreter-only/ -p:Jiterpreter=false
     - name: Publish, ahead-of-time
       run: dotnet publish NarrowTest.csproj --nologo -c Release -o publish/aot -p:IntermediateOutputPath=obj/aot/ -p:OutputPath=bin/aot/ -p:Aot=true
+    # the default build again for .NET 9 and .NET 8 (the SDK fetches their runtime packs)
+    - name: Publish, .NET 9 default
+      run: dotnet publish NarrowTest.csproj --nologo -c Release -o publish/net9 -p:IntermediateOutputPath=obj/net9/ -p:OutputPath=bin/net9/ -p:Tfm=net9.0
+    - name: Publish, .NET 8 default
+      run: dotnet publish NarrowTest.csproj --nologo -c Release -o publish/net8 -p:IntermediateOutputPath=obj/net8/ -p:OutputPath=bin/net8/ -p:Tfm=net8.0
 
-    # the default build is the site's root; the other two sit in sub-folders (the page's base href is relative)
+    # the .NET 10 default build is the site's root; the others sit in sub-folders (the page's base href is relative)
     - name: Assemble the site
       run: |
         mkdir site
         cp -r publish/default/wwwroot/. site/
-        mkdir site/interpreter-only site/aot
+        mkdir site/interpreter-only site/aot site/net9 site/net8
         cp -r publish/interpreter-only/wwwroot/. site/interpreter-only/
         cp -r publish/aot/wwwroot/. site/aot/
+        cp -r publish/net9/wwwroot/. site/net9/
+        cp -r publish/net8/wwwroot/. site/net8/
         touch site/.nojekyll
 
     - name: Commit the site to GitHub Pages

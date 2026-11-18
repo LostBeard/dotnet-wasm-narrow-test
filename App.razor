@@ -9,11 +9,14 @@
 </p>
 
 <p>
-    The same code, built three ways:
-    <a href="@Links[0]">default</a> (the interpreter with its hot-path compiler: what a plain Blazor WebAssembly publish is) |
-    <a href="@Links[1]">interpreter only</a> |
-    <a href="@Links[2]">ahead-of-time compiled</a>.
+    The same code in other builds:
+    <a href="@Links[0]">.NET 10 default</a> (the interpreter with its hot-path compiler: what a plain Blazor WebAssembly publish is) |
+    <a href="@Links[1]">.NET 10, interpreter only</a> |
+    <a href="@Links[2]">.NET 10, ahead-of-time compiled</a> |
+    <a href="@Links[3]">.NET 9 default</a> |
+    <a href="@Links[4]">.NET 8 default</a>.
     Source, results so far and where to report yours: <a href="https://github.com/LostBeard/dotnet-wasm-narrow-test">github.com/LostBeard/dotnet-wasm-narrow-test</a>.
+    Tracked by .NET as <a href="https://github.com/dotnet/runtime/issues/136688">dotnet/runtime#136688</a>.
 </p>
 
 <p><b>Build:</b> @Build &nbsp; <b>Runtime:</b> @Runtime</p>
@@ -54,12 +57,12 @@
     private string Browser = "";
     private string Report = "";
 
-    // the site: the default build at the root, the other two in sub-folders
+    // the site: the .NET 10 default build at the root, the others in sub-folders
     private static string[] Links =>
-#if AOT_BUILD || JITERPRETER_OFF
-        new[] { "../", "../interpreter-only/", "../aot/" };
+#if SITE_SUBFOLDER
+        new[] { "../", "../interpreter-only/", "../aot/", "../net9/", "../net8/" };
 #else
-        new[] { "./", "interpreter-only/", "aot/" };
+        new[] { "./", "interpreter-only/", "aot/", "net9/", "net8/" };
 #endif
 
     private static string Build =>

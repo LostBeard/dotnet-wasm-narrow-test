@@ -1,12 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <!-- -p:Tfm=net9.0 / net8.0 builds the same code for an older .NET (to see how far back the behaviour goes) -->
+    <TargetFramework Condition="'$(Tfm)' == ''">net10.0</TargetFramework>
+    <TargetFramework Condition="'$(Tfm)' != ''">$(Tfm)</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <!--
-      Three builds of the same code:
+      Builds of the same code:
         (default)               the interpreter with its hot-path compiler (the "jiterpreter"): what a plain Blazor WebAssembly publish is
         -p:Jiterpreter=false    the interpreter alone: the control
         -p:Aot=true             ahead-of-time compiled (needs the wasm-tools workload)
@@ -15,10 +17,14 @@
     <RunAOTCompilation Condition="'$(Aot)' == 'true'">true</RunAOTCompilation>
     <DefineConstants Condition="'$(Jiterpreter)' == 'false'">$(DefineConstants);JITERPRETER_OFF</DefineConstants>
     <DefineConstants Condition="'$(Aot)' == 'true'">$(DefineConstants);AOT_BUILD</DefineConstants>
+    <!-- every build but the default .NET 10 one sits in a sub-folder of the site: its links to the other builds go up one level -->
+    <DefineConstants Condition="'$(Aot)' == 'true' Or '$(Jiterpreter)' == 'false' Or '$(Tfm)' != ''">$(DefineConstants);SITE_SUBFOLDER</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.12" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.12" Condition="'$(TargetFramework)' == 'net10.0'" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="9.0.*" Condition="'$(TargetFramework)' == 'net9.0'" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.*" Condition="'$(TargetFramework)' == 'net8.0'" />
   </ItemGroup>
 
 </Project>
