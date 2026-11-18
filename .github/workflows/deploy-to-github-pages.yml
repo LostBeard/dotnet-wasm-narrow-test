@@ -1,0 +1,51 @@
+name: Deploy to GitHub Pages
+
+on: workflow_dispatch
+
+jobs:
+  deploy-to-github-pages:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v3.0.3
+      with:
+        dotnet-version: '10'
+
+    # ubuntu-latest also ships a newer SDK; without a global.json `dotnet` picks the newest and the workload step installs the wrong wasm-tools.
+    # Written here, not committed, so a local build uses whatever .NET 10 SDK is installed.
+    - name: Pin .NET SDK 10
+      run: |
+        echo '{"sdk":{"version":"10.0.100","rollForward":"latestFeature"}}' > global.json
+        dotnet --version
+
+    # the ahead-of-time build needs it
+    - name: Install .NET WASM build tools
+      run: dotnet workload install wasm-tools
+
+    # Three builds of the same code: the default, the interpreter alone (the control), ahead-of-time compiled
+    - name: Publish, default
+      run: dotnet publish NarrowTest.csproj --nologo -c Release -o publish/default -p:IntermediateOutputPath=obj/default/ -p:OutputPath=bin/default/
+    - name: Publish, interpreter only
+      run: dotnet publish NarrowTest.csproj --nologo -c Release -o publish/interpreter-only -p:IntermediateOutputPath=obj/interpreter-only/ -p:OutputPath=bin/interpreter-only/ -p:Jiterpreter=false
+    - name: Publish, ahead-of-time
+      run: dotnet publish NarrowTest.csproj --nologo -c Release -o publish/aot -p:IntermediateOutputPath=obj/aot/ -p:OutputPath=bin/aot/ -p:Aot=true
+
+    # the default build is the site's root; the other two sit in sub-folders (the page's base href is relative)
+    - name: Assemble the site
+      run: |
+        mkdir site
+        cp -r publish/default/wwwroot/. site/
+        mkdir site/interpreter-only site/aot
+        cp -r publish/interpreter-only/wwwroot/. site/interpreter-only/
+        cp -r publish/aot/wwwroot/. site/aot/
+        touch site/.nojekyll
+
+    - name: Commit the site to GitHub Pages
+      uses: JamesIves/github-pages-deploy-action@v4.4.1
+      with:
+        branch: gh-pages
+        folder: site

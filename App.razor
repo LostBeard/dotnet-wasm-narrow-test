@@ -1,0 +1,112 @@
+@inject IJSRuntime JS
+
+<h1>Does <code>Vector128.Narrow</code> truncate in your browser's .NET runtime?</h1>
+
+<p>
+    <code>Vector128.Narrow</code> must keep the low bits of each value (truncate): <code>0x12345678</code> narrowed to 16 bits is <code>0x5678</code>.
+    This page narrows values that do not fit the narrow type, in loops of @NarrowCases.Rounds.ToString("N0") rounds, and compares every result with plain integer casts.
+    It runs by itself when the page loads and takes some seconds.
+</p>
+
+<p>
+    The same code, built three ways:
+    <a href="@Links[0]">default</a> (the interpreter with its hot-path compiler: what a plain Blazor WebAssembly publish is) |
+    <a href="@Links[1]">interpreter only</a> |
+    <a href="@Links[2]">ahead-of-time compiled</a>.
+    Source, results so far and where to report yours: <a href="https://github.com/LostBeard/dotnet-wasm-narrow-test">github.com/LostBeard/dotnet-wasm-narrow-test</a>.
+</p>
+
+<p><b>Build:</b> @Build &nbsp; <b>Runtime:</b> @Runtime</p>
+<p><b>Browser:</b> @Browser</p>
+
+<table>
+    <thead>
+        <tr><th>Case</th><th>Kind</th><th>Wrong values</th><th>First wrong round</th><th>First wrong value</th><th>Time</th></tr>
+    </thead>
+    <tbody>
+        @foreach (var r in Results)
+        {
+            <tr class="@(r.Wrong == 0 ? "ok" : "bad")">
+                <td>@r.Name</td>
+                <td>@r.Kind</td>
+                <td>@r.Wrong.ToString("N0") of @r.Total.ToString("N0")</td>
+                <td>@(r.FirstWrongRound < 0 ? "-" : r.FirstWrongRound.ToString("N0"))</td>
+                <td>@(r.FirstWrong == "" ? "-" : r.FirstWrong)</td>
+                <td>@r.Milliseconds.ToString("F0") ms</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<p id="status" data-done="@(Finished ? "yes" : "no")" class="@VerdictClass"><b>@Status</b></p>
+
+@if (Finished)
+{
+    <p>Report (copy this into a comment on the tracking issue, affected or not):</p>
+    <textarea id="report" readonly rows="16">@Report</textarea>
+}
+
+@code {
+    private readonly List<CaseResult> Results = new();
+    private bool Finished;
+    private string Status = "Running ...";
+    private string VerdictClass = "";
+    private string Browser = "";
+    private string Report = "";
+
+    // the site: the default build at the root, the other two in sub-folders
+    private static string[] Links =>
+#if AOT_BUILD || JITERPRETER_OFF
+        new[] { "../", "../interpreter-only/", "../aot/" };
+#else
+        new[] { "./", "interpreter-only/", "aot/" };
+#endif
+
+    private static string Build =>
+#if AOT_BUILD
+        "ahead-of-time compiled (RunAOTCompilation)";
+#elif JITERPRETER_OFF
+        "interpreter only (BlazorWebAssemblyJiterpreter = false)";
+#else
+        "default (interpreter with its hot-path compiler, the jiterpreter)";
+#endif
+
+    private static string Runtime =>
+        $"{System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}, {System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture}, "
+        + $"Vector128 accelerated {System.Runtime.Intrinsics.Vector128.IsHardwareAccelerated}, Vector256 accelerated {System.Runtime.Intrinsics.Vector256.IsHardwareAccelerated}";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try { Browser = await JS.InvokeAsync<string>("navigator.userAgent.toString"); } catch { Browser = "(unknown)"; }
+        StateHasChanged();
+        await Task.Delay(50);
+        foreach (var (name, run) in NarrowCases.All)
+        {
+            Status = $"Running: {name} ...";
+            StateHasChanged();
+            await Task.Delay(30);                       // let the page draw before the next loop holds the thread
+            Results.Add(run());
+        }
+        long wrongTests = Results.Where(r => r.Kind == "test").Sum(r => r.Wrong);
+        long wrongControls = Results.Where(r => r.Kind == "control").Sum(r => r.Wrong);
+        bool affected = wrongTests > 0;
+        Status = affected
+            ? (wrongControls == 0
+                ? "AFFECTED: Vector128.Narrow returned values that are not the truncated ones (the controls are right)."
+                : "AFFECTED, and a control is wrong too: please report this, it is not what we have seen.")
+            : (wrongControls == 0 ? "NOT AFFECTED: every narrowing truncated." : "A control is wrong while the tests are right: please report this, it is not what we have seen.");
+        VerdictClass = affected || wrongControls > 0 ? "bad" : "ok";
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine(Status);
+        sb.AppendLine($"Build: {Build}");
+        sb.AppendLine($"Runtime: {Runtime}");
+        sb.AppendLine($"Browser: {Browser}");
+        foreach (var r in Results)
+            sb.AppendLine($"- {r.Name} [{r.Kind}]: {r.Wrong} of {r.Total} wrong"
+                + (r.Wrong > 0 ? $", first in round {r.FirstWrongRound} ({r.FirstWrong})" : "") + $", {r.Milliseconds:F0} ms");
+        Report = sb.ToString();
+        Finished = true;
+        StateHasChanged();
+    }
+}
