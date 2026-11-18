@@ -29,6 +29,9 @@ Windows 11 x64, headless Chromium 153 and Chrome 157, 2026-11-18. The counts are
 
 (The builds were made on a machine with the `wasm-tools` workload, which relinks the runtime on publish; the second row is the control for that.)
 
+The published page is built by GitHub with whatever servicing release is current: on 2026-11-18 that was 10.0.15, 9.0.23 and 8.0.34, with the same results and
+the same counts.
+
 The .NET 10 default build, case by case:
 
 | Case | Wrong values | First wrong round | First wrong value |
@@ -97,6 +100,9 @@ missing. The bug itself is tracked by .NET in [dotnet/runtime#136688](https://gi
 | 10.0.14 | Chrome 157, Windows 11 x64 | Affected (the same counts) | | | this repository |
 | 9.0.22 | headless Chromium 153, Windows 11 x64 | Affected | | | this repository |
 | 8.0.33 | headless Chromium 153, Windows 11 x64 | Affected | | | this repository |
+| 10.0.15 | headless Chromium 153, Windows 11 x64 (the published page) | Affected | Not affected | Not affected | this repository |
+| 9.0.23 | headless Chromium 153, Windows 11 x64 (the published page) | Affected | | | this repository |
+| 8.0.34 | headless Chromium 153, Windows 11 x64 (the published page) | Affected | | | this repository |
 
 ## How it was found
 
